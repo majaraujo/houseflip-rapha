@@ -187,27 +187,25 @@ if selected_neighborhood:
                 "Melhor score: " + render_opportunity_score_badge(float(row["best_opportunity_score"]))
             )
 
-        # Favorite buttons
-        if "id" in listings_df.columns:
-            repo = ListingRepository(get_db())
-            fav_ids = {r["id"] for r in repo.query_favorites()}
-            st.caption("Favoritar anúncios:")
-            btn_cols = st.columns(min(len(listings_df), 4))
-            for idx, row in enumerate(listings_df.head(12).iter_rows(named=True)):
-                label = (row.get("title") or row.get("url") or row["id"])[:35]
-                icon = "★" if row["id"] in fav_ids else "☆"
-                with btn_cols[idx % 4]:
-                    if st.button(f"{icon} {label}", key=f"fav_{row['id']}", use_container_width=True):
-                        repo.toggle_favorite(row["id"])
-                        st.rerun()
+        # Opportunity table with favorite star column
+        repo = ListingRepository(get_db())
+        fav_ids = {r["id"] for r in repo.query_favorites()}
 
-        # Opportunity table with score columns
         display_cols = [
-            "title", "price_brl", "area_m2", "price_per_m2",
+            "id", "title", "price_brl", "area_m2", "price_per_m2",
             "bedrooms", "parking_spots", "opportunity_score", "pct_vs_median", "url",
         ]
         available = [c for c in display_cols if c in listings_df.columns]
-        subset = listings_df.select(available).rename({
+        subset = listings_df.select(available)
+
+        # Add favorite boolean column
+        subset = subset.with_columns(
+            pl.col("id").map_elements(lambda i: i in fav_ids, return_dtype=pl.Boolean).alias("★")
+        )
+
+        # Reorder: star first, then the rest (excluding id)
+        ordered_cols = ["★"] + [c for c in available if c != "id"]
+        subset = subset.select(ordered_cols).rename({
             "title": "Título",
             "price_brl": "Preço (R$)",
             "area_m2": "Área (m²)",
@@ -219,7 +217,11 @@ if selected_neighborhood:
             "url": "Link",
         })
 
+        # Keep id separately for toggle detection
+        ids = listings_df["id"].to_list() if "id" in listings_df.columns else []
+
         column_config: dict = {
+            "★": st.column_config.CheckboxColumn("★", help="Favoritar", width="small"),
             "Link": st.column_config.LinkColumn("Link", display_text="Abrir"),
             "Preço (R$)": st.column_config.NumberColumn(format="R$ %.2f"),
             "R$/m²": st.column_config.NumberColumn(format="R$ %.2f"),
@@ -227,13 +229,24 @@ if selected_neighborhood:
             "% vs Mediana": st.column_config.NumberColumn(format="%.1f%%"),
         }
 
-        st.dataframe(
+        edited = st.data_editor(
             subset,
             use_container_width=True,
             height=400,
             column_config=column_config,
             hide_index=True,
+            key=f"listings_editor_{selected_neighborhood}",
         )
+
+        # Detect favorite toggles and persist
+        if ids and edited is not None:
+            new_fav_states = edited["★"].to_list()
+            for listing_id, is_fav_now in zip(ids, new_fav_states):
+                was_fav = listing_id in fav_ids
+                if is_fav_now != was_fav:
+                    repo.toggle_favorite(listing_id)
+            if edited["★"].to_list() != subset["★"].to_list():
+                st.rerun()
     else:
         st.info("Sem anúncios para este bairro com os filtros selecionados.")
 

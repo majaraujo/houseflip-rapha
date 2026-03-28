@@ -9,8 +9,12 @@ from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator
 from typing import ClassVar
 
+import logging
+
 import httpx
 from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
+
+logger = logging.getLogger(__name__)
 
 from houseflip.models.listing import Listing, ListingSource
 from houseflip.models.scrape_config import ScrapeJob

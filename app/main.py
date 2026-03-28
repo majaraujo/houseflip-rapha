@@ -25,6 +25,17 @@ logging.basicConfig(
 
 import streamlit as st
 
+# Inject Streamlit secrets into os.environ so library code can read them via os.getenv()
+_SECRET_ENV_KEYS = ["SCRAPERAPI_KEY", "HOUSEFLIP_DB_PATH", "LOG_LEVEL",
+                    "SCRAPER_TIMEOUT_SECONDS", "SCRAPER_MAX_RETRIES", "SCRAPER_REQUEST_DELAY_SECONDS"]
+for _key in _SECRET_ENV_KEYS:
+    try:
+        _val = st.secrets.get(_key)
+        if _val is not None:
+            os.environ[_key] = str(_val)
+    except Exception:
+        pass
+
 from app.components.login import render_login, render_logout_button
 from app.config import APP_ICON, APP_TITLE
 

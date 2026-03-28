@@ -10,13 +10,18 @@ _LOGO_PATH = Path(__file__).parent.parent / "static" / "logo.png"
 
 
 def _check_credentials(username: str, password: str) -> bool:
-    """Validate credentials against values stored in Streamlit secrets."""
-    expected_username = st.secrets.get("AUTH_USERNAME", "")
-    expected_hash = st.secrets.get("AUTH_PASSWORD_HASH", "")
+    """Validate credentials against users table in Streamlit secrets.
+
+    Expected secrets format:
+        [users.joao]
+        password_hash = "sha256_hash_here"
+    """
+    try:
+        expected_hash = st.secrets["users"][username]["password_hash"]
+    except KeyError:
+        return False
     password_hash = hashlib.sha256(password.encode()).hexdigest()
-    return hmac.compare_digest(username, expected_username) and hmac.compare_digest(
-        password_hash, expected_hash
-    )
+    return hmac.compare_digest(password_hash, expected_hash)
 
 
 def render_login() -> bool:
@@ -83,6 +88,14 @@ def render_login() -> bool:
         )
 
     if submitted:
+        import hashlib
+        pwd_hash = hashlib.sha256(password.encode()).hexdigest()
+        try:
+            stored = st.secrets["users"][username]["password_hash"]
+        except Exception as e:
+            stored = f"ERRO: {e}"
+        st.code(f"usuario digitado : '{username}'\nhash gerado      : {pwd_hash}\nhash no secrets  : {stored}\nbateu?           : {pwd_hash == stored}")
+
         if _check_credentials(username, password):
             st.session_state["authenticated"] = True
             st.session_state["auth_username"] = username

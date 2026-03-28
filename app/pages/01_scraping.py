@@ -24,7 +24,7 @@ def _get_db_stats() -> dict:
 
 
 st.title(":material/travel_explore: Scraping de Anúncios")
-st.caption("Configure e execute o scraping de imóveis nos portais ZapImóveis e VivaReal.")
+st.caption("Configure e execute o scraping de imóveis nos principais portais.")
 
 
 # ── Sidebar ──────────────────────────────────────────────────────────────────

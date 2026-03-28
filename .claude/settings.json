@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.venv/Scripts/python -u -c \":*)",
+      "Bash(.venv/Scripts/streamlit run:*)",
+      "Bash(taskkill /F /IM python.exe /T)",
+      "Bash(taskkill /F /IM streamlit.exe /T)",
+      "Bash(taskkill //F //IM python.exe //T)",
+      "Bash(.venv/Scripts/python -c \":*)",
+      "Bash(mkdir -p ~/.streamlit)",
+      "Bash(~/.streamlit/config.toml:*)",
+      "Bash(.venv/Scripts/python -c \"import streamlit; print\\(streamlit.__version__\\)\")",
+      "Bash(.venv/Scripts/python -c \"import tenacity; print\\(tenacity.__version__\\)\")",
+      "Bash(.venv/Scripts/pip show:*)",
+      "Bash(uv run:*)",
+      "Bash(tasklist /FI \"PID eq 7348\")",
+      "Bash(taskkill /PID 7348 /F)",
+      "Bash(tasklist /FI \"PID eq 7348\" /FO LIST)",
+      "Bash(wmic process:*)",
+      "Bash(cmd /c \"taskkill /PID 7348 /F\")",
+      "Bash(cmd /c \"wmic process where ProcessId=7348 get Name\")",
+      "Bash(HOUSEFLIP_DB_PATH=\"data/test_pipeline.duckdb\" uv run python - <<'EOF':*)",
+      "Bash(HOUSEFLIP_DB_PATH=\"data/test_fix.duckdb\" uv run python - <<'EOF':*)",
+      "Bash(find \"c:/Users/User/OneDrive/Documentos/Projetos/Houseflip/src/houseflip/models\" -name \"*.pyc\" -delete)",
+      "Bash(cmd /c \"taskkill /PID 7348 /F 2>&1\")",
+      "Bash(powershell -Command \"Stop-Process -Id 7348 -Force -ErrorAction SilentlyContinue; Write-Output ''done''\")",
+      "Bash(powershell -Command \"Get-Process -Id 7348 -ErrorAction SilentlyContinue | Select-Object Id,Name; Get-Process python* | Select-Object Id,Name,CommandLine\")",
+      "WebFetch(domain:www.quintoandar.com.br)",
+      "Bash(find \"c:/Users/User/OneDrive/Documentos/Projetos/Houseflip/src\" -name \"*.pyc\" -delete)",
+      "Bash(find \"c:/Users/User/OneDrive/Documentos/Projetos/Houseflip/app\" -name \"*.pyc\" -delete)",
+      "Bash(powershell -Command \"Get-Process python* | Stop-Process -Force -ErrorAction SilentlyContinue; Write-Output ''processos encerrados''\")",
+      "Bash(powershell -Command \"Get-Process python* | Stop-Process -Force -ErrorAction SilentlyContinue\")",
+      "Bash(powershell -Command \"Stop-Process -Id 21080 -Force -ErrorAction SilentlyContinue; Get-Process python* | Stop-Process -Force -ErrorAction SilentlyContinue; Write-Output ''ok''\")",
+      "Bash(uv add:*)"
+    ]
+  }
+}

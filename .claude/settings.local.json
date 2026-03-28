@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv --version)",
+      "Bash(hatch --version)",
+      "Bash(git --version)",
+      "Bash(.venv/Scripts/python -c \":*)"
+    ]
+  }
+}

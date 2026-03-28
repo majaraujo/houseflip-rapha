@@ -4,6 +4,7 @@ import asyncio
 import os
 import random
 import unicodedata
+import urllib.parse
 from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator
 from typing import ClassVar
@@ -16,6 +17,14 @@ from houseflip.models.scrape_config import ScrapeJob
 
 _TIMEOUT_SECONDS = float(os.getenv("SCRAPER_TIMEOUT_SECONDS", "30.0"))
 _MAX_RETRIES = int(os.getenv("SCRAPER_MAX_RETRIES", "3"))
+_SCRAPERAPI_KEY = os.getenv("SCRAPERAPI_KEY")
+
+
+def _build_request_url(url: str) -> str:
+    """Wrap URL through ScraperAPI if a key is configured, otherwise return as-is."""
+    if not _SCRAPERAPI_KEY:
+        return url
+    return f"http://api.scraperapi.com?api_key={_SCRAPERAPI_KEY}&url={urllib.parse.quote_plus(url)}"
 
 _USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
@@ -94,7 +103,7 @@ class BaseScraper(ABC):
         reraise=True,
     )
     async def _fetch_page(self, url: str) -> str:
-        response = await self.client.get(url)
+        response = await self.client.get(_build_request_url(url))
         response.raise_for_status()
         return response.text
 

@@ -109,6 +109,8 @@ class BaseScraper(ABC):
 
     async def scrape(self) -> AsyncGenerator[list[Listing], None]:
         """Async generator that yields a list of listings per page."""
+        seen_ids: set[str] = set()
+
         for page in range(1, self.job.max_pages + 1):
             url = self._build_url(page)
             html = await self._fetch_page(url)
@@ -117,7 +119,17 @@ class BaseScraper(ABC):
             if not listings:
                 break
 
-            yield listings
+            # Stop if the entire page consists of already-seen listings
+            # (sites that don't support SSR pagination return the same page repeatedly)
+            new_listings = [l for l in listings if l.external_id not in seen_ids]
+            if not new_listings:
+                logger.debug("Page %d returned only duplicates — stopping early.", page)
+                break
+
+            for l in new_listings:
+                seen_ids.add(l.external_id)
+
+            yield new_listings
 
             if not self._has_next_page(html, page):
                 break

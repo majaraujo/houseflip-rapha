@@ -25,6 +25,7 @@ logging.basicConfig(
 
 import streamlit as st
 
+from app.components.login import render_login, render_logout_button
 from app.config import APP_ICON, APP_TITLE
 
 st.set_page_config(
@@ -33,6 +34,44 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+# Mobile-responsive global CSS
+st.markdown(
+    """
+    <style>
+    /* Padding reduzido em telas pequenas */
+    @media (max-width: 768px) {
+        .block-container {
+            padding-left: 1rem !important;
+            padding-right: 1rem !important;
+            padding-top: 1rem !important;
+        }
+        /* Botões ocupam largura total no mobile */
+        div[data-testid="stButton"] > button {
+            width: 100%;
+        }
+    }
+
+    /* Tabelas com scroll horizontal no mobile */
+    div[data-testid="stDataFrame"] {
+        overflow-x: auto;
+    }
+
+    /* Inputs com tamanho adequado para toque */
+    input, select, textarea {
+        font-size: 16px !important; /* Evita zoom automático no iOS */
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+# Autenticação — bloqueia o app se não estiver logado
+if not render_login():
+    st.stop()
+
+# Botão de logout na sidebar
+render_logout_button()
 
 pages = {
     APP_TITLE: [

@@ -229,23 +229,25 @@ if selected_neighborhood:
             "% vs Mediana": st.column_config.NumberColumn(format="%.1f%%"),
         }
 
+        editor_key = f"listings_editor_{selected_neighborhood}_{len(ids)}"
         edited = st.data_editor(
             subset,
             use_container_width=True,
             height=400,
             column_config=column_config,
             hide_index=True,
-            key=f"listings_editor_{selected_neighborhood}",
+            key=editor_key,
         )
 
-        # Detect favorite toggles and persist
+        # Detect favorite toggles and persist — only rerun when something actually changed
         if ids and edited is not None:
-            new_fav_states = edited["★"].to_list()
-            for listing_id, is_fav_now in zip(ids, new_fav_states):
+            changed = False
+            for listing_id, is_fav_now in zip(ids, edited["★"].to_list()):
                 was_fav = listing_id in fav_ids
                 if is_fav_now != was_fav:
                     repo.toggle_favorite(listing_id)
-            if edited["★"].to_list() != subset["★"].to_list():
+                    changed = True
+            if changed:
                 st.rerun()
     else:
         st.info("Sem anúncios para este bairro com os filtros selecionados.")

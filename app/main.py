@@ -77,6 +77,7 @@ pages = {
     APP_TITLE: [
         st.Page("pages/01_scraping.py", title="Scraping", icon=":material/travel_explore:"),
         st.Page("pages/02_analysis.py", title="Análise de Preços", icon=":material/trending_down:"),
+        st.Page("pages/03_favorites.py", title="Favoritos", icon=":material/favorite:"),
     ]
 }
 

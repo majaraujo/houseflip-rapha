@@ -3,8 +3,20 @@
 import polars as pl
 import streamlit as st
 
+from houseflip.storage.database import get_db
+from houseflip.storage.repository import ListingRepository
 
-def render_listing_table(df: pl.DataFrame | list[dict], height: int = 400) -> None:
+
+def _toggle_favorite(listing_id: str) -> None:
+    repo = ListingRepository(get_db())
+    repo.toggle_favorite(listing_id)
+
+
+def render_listing_table(
+    df: pl.DataFrame | list[dict],
+    height: int = 400,
+    show_favorite_button: bool = False,
+) -> None:
     if isinstance(df, list):
         if not df:
             st.info("Nenhum anúncio encontrado.")
@@ -15,7 +27,26 @@ def render_listing_table(df: pl.DataFrame | list[dict], height: int = 400) -> No
         st.info("Nenhum anúncio encontrado.")
         return
 
-    # Select and rename display columns
+    # Botões de favoritar acima da tabela
+    if show_favorite_button and "id" in df.columns:
+        st.caption("Favoritar anúncios:")
+        cols_per_row = 3
+        rows = [
+            df.slice(i, cols_per_row) for i in range(0, min(len(df), 30), cols_per_row)
+        ]
+        for chunk in rows:
+            btn_cols = st.columns(cols_per_row)
+            for idx, row in enumerate(chunk.iter_rows(named=True)):
+                label = (row.get("title") or row.get("url") or row["id"])[:40]
+                with btn_cols[idx]:
+                    is_fav = row.get("is_favorite", False)
+                    icon = "★" if is_fav else "☆"
+                    if st.button(f"{icon} {label}", key=f"fav_{row['id']}", use_container_width=True):
+                        _toggle_favorite(row["id"])
+                        st.rerun()
+        st.divider()
+
+    # Tabela principal
     display_cols = {
         "title": "Título",
         "neighborhood": "Bairro",
@@ -37,9 +68,7 @@ def render_listing_table(df: pl.DataFrame | list[dict], height: int = 400) -> No
     if "Link" in subset.columns:
         column_config["Link"] = st.column_config.LinkColumn("Link", display_text="Abrir")
     if "Preço (R$)" in subset.columns:
-        column_config["Preço (R$)"] = st.column_config.NumberColumn(
-            "Preço (R$)", format="R$ %.2f"
-        )
+        column_config["Preço (R$)"] = st.column_config.NumberColumn("Preço (R$)", format="R$ %.2f")
     if "R$/m²" in subset.columns:
         column_config["R$/m²"] = st.column_config.NumberColumn("R$/m²", format="R$ %.2f")
 

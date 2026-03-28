@@ -190,3 +190,46 @@ class ListingRepository:
             "SELECT DISTINCT source FROM listings WHERE is_active = TRUE ORDER BY 1"
         ).fetchall()
         return [r[0] for r in rows]
+
+    def clear_all_listings(self) -> int:
+        """Delete all listings and scrape runs. Returns count of deleted listings."""
+        count = self._db.execute("SELECT COUNT(*) FROM listings").fetchone()[0]
+        self._db.execute("DELETE FROM listings")
+        self._db.execute("DELETE FROM scrape_runs")
+        return count
+
+    # ------------------------------------------------------------------
+    # Favorites
+    # ------------------------------------------------------------------
+
+    def toggle_favorite(self, listing_id: str) -> bool:
+        """Toggle is_favorite for a listing. Returns new state (True = favorited)."""
+        current = self._db.execute(
+            "SELECT is_favorite FROM listings WHERE id = ?", [listing_id]
+        ).fetchone()
+        if current is None:
+            return False
+        new_state = not current[0]
+        self._db.execute(
+            "UPDATE listings SET is_favorite = ? WHERE id = ?", [new_state, listing_id]
+        )
+        return new_state
+
+    def query_favorites(self) -> list[dict]:
+        """Return all favorited listings."""
+        rows = self._db.execute(
+            """
+            SELECT id, external_id, source, url, listing_type, property_type,
+                   city, neighborhood, street, price_brl, area_m2,
+                   bedrooms, bathrooms, parking_spots, price_per_m2,
+                   title, scraped_at
+              FROM listings
+             WHERE is_favorite = TRUE AND is_active = TRUE
+             ORDER BY scraped_at DESC
+            """
+        ).fetchall()
+        cols = ["id", "external_id", "source", "url", "listing_type", "property_type",
+                "city", "neighborhood", "street", "price_brl", "area_m2",
+                "bedrooms", "bathrooms", "parking_spots", "price_per_m2",
+                "title", "scraped_at"]
+        return [dict(zip(cols, row)) for row in rows]

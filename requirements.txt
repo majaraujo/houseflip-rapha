@@ -122,6 +122,10 @@ six==1.17.0
 smmap==5.0.3
     # via gitdb
 streamlit==1.55.0
+    # via
+    #   houseflip
+    #   streamlit-cookies-controller
+streamlit-cookies-controller==0.0.4
     # via houseflip
 tenacity==9.1.4
     # via

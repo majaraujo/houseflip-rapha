@@ -31,7 +31,8 @@
       "Bash(powershell -Command \"Get-Process python* | Stop-Process -Force -ErrorAction SilentlyContinue; Write-Output ''processos encerrados''\")",
       "Bash(powershell -Command \"Get-Process python* | Stop-Process -Force -ErrorAction SilentlyContinue\")",
       "Bash(powershell -Command \"Stop-Process -Id 21080 -Force -ErrorAction SilentlyContinue; Get-Process python* | Stop-Process -Force -ErrorAction SilentlyContinue; Write-Output ''ok''\")",
-      "Bash(uv add:*)"
+      "Bash(uv add:*)",
+      "Bash(python -c \":*)"
     ]
   }
 }

@@ -31,6 +31,29 @@ with st.sidebar:
     st.header("Configurações")
     job = render_scraper_form()
 
+    st.divider()
+    st.subheader("Gerenciamento")
+    if st.button("Limpar todos os anúncios", use_container_width=True, type="secondary"):
+        st.session_state["confirm_clear"] = True
+
+    if st.session_state.get("confirm_clear"):
+        st.warning("Isso apagará **todos** os anúncios e histórico de scraping. Confirma?")
+        col_yes, col_no = st.columns(2)
+        with col_yes:
+            if st.button("Sim, apagar", type="primary", use_container_width=True):
+                db = get_db()
+                repo = ListingRepository(db)
+                deleted = repo.clear_all_listings()
+                st.session_state.pop("confirm_clear", None)
+                st.session_state.pop("last_scrape_listings", None)
+                st.session_state.pop("last_scrape_total", None)
+                st.success(f"{deleted} anúncios removidos.")
+                st.rerun()
+        with col_no:
+            if st.button("Cancelar", use_container_width=True):
+                st.session_state.pop("confirm_clear", None)
+                st.rerun()
+
 # ── Database stats ────────────────────────────────────────────────────────────
 stats = _get_db_stats()
 
@@ -82,14 +105,14 @@ if job is not None:
     st.session_state["last_scrape_total"] = len(all_listings)
 
     st.subheader("Anúncios coletados nesta execução")
-    render_listing_table(all_listings)
+    render_listing_table(all_listings, show_favorite_button=True)
 
 # ── Show last session results if no new scrape ────────────────────────────────
 elif "last_scrape_listings" in st.session_state and st.session_state["last_scrape_listings"]:
     st.subheader(
         f"Última execução — {st.session_state.get('last_scrape_total', 0)} anúncios"
     )
-    render_listing_table(st.session_state["last_scrape_listings"])
+    render_listing_table(st.session_state["last_scrape_listings"], show_favorite_button=True)
 else:
     st.info("Configure o scraping na barra lateral e clique em **Iniciar Scraping**.")
 

@@ -77,12 +77,10 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Autenticação — bloqueia o app se não estiver logado
-if not render_login():
-    st.stop()
-
-# Botão de logout na sidebar
-render_logout_button()
+# Autenticação desativada temporariamente
+# if not render_login():
+#     st.stop()
+# render_logout_button()
 
 pages = {
     APP_TITLE: [

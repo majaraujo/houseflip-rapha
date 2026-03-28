@@ -26,6 +26,15 @@ def _get_db_stats() -> dict:
 st.title(":material/travel_explore: Scraping de Anúncios")
 st.caption("Configure e execute o scraping de imóveis nos portais ZapImóveis e VivaReal.")
 
+# DEBUG TEMPORÁRIO
+import os
+_api_key_env = os.getenv("SCRAPERAPI_KEY")
+try:
+    _api_key_secret = st.secrets.get("SCRAPERAPI_KEY", "NÃO ENCONTRADO")
+except Exception as e:
+    _api_key_secret = f"ERRO: {e}"
+st.code(f"SCRAPERAPI_KEY via os.getenv : {repr(_api_key_env)}\nSCRAPERAPI_KEY via st.secrets: {repr(_api_key_secret)}")
+
 # ── Sidebar ──────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.header("Configurações")

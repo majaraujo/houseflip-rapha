@@ -88,14 +88,6 @@ def render_login() -> bool:
         )
 
     if submitted:
-        import hashlib
-        pwd_hash = hashlib.sha256(password.encode()).hexdigest()
-        try:
-            stored = st.secrets["users"][username]["password_hash"]
-        except Exception as e:
-            stored = f"ERRO: {e}"
-        st.code(f"usuario digitado : '{username}'\nhash gerado      : {pwd_hash}\nhash no secrets  : {stored}\nbateu?           : {pwd_hash == stored}")
-
         if _check_credentials(username, password):
             st.session_state["authenticated"] = True
             st.session_state["auth_username"] = username

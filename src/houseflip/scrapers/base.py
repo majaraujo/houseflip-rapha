@@ -130,7 +130,6 @@ class BaseScraper(ABC):
             # (sites that don't support SSR pagination return the same page repeatedly)
             new_listings = [l for l in listings if l.external_id not in seen_ids]
             if not new_listings:
-                logger.debug("Page %d returned only duplicates — stopping early.", page)
                 break
 
             for l in new_listings:

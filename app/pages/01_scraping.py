@@ -106,14 +106,14 @@ if job is not None:
     st.session_state["last_scrape_total"] = len(all_listings)
 
     st.subheader("Anúncios coletados nesta execução")
-    render_listing_table(all_listings, show_favorite_button=True)
+    render_listing_table(all_listings)
 
 # ── Show last session results if no new scrape ────────────────────────────────
 elif "last_scrape_listings" in st.session_state and st.session_state["last_scrape_listings"]:
     st.subheader(
         f"Última execução — {st.session_state.get('last_scrape_total', 0)} anúncios"
     )
-    render_listing_table(st.session_state["last_scrape_listings"], show_favorite_button=True)
+    render_listing_table(st.session_state["last_scrape_listings"])
 else:
     st.info("Configure o scraping na barra lateral e clique em **Iniciar Scraping**.")
 

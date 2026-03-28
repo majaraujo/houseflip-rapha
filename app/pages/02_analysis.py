@@ -15,6 +15,7 @@ from app.components.opportunity_chart import render_opportunity_chart, render_op
 from app.config import LISTING_TYPE_OPTIONS, PROPERTY_TYPE_OPTIONS
 from houseflip.services.analysis_service import AnalysisService
 from houseflip.storage.database import get_db
+from houseflip.storage.repository import ListingRepository
 
 st.title(":material/trending_down: Análise de Oportunidades")
 st.caption(
@@ -185,6 +186,20 @@ if selected_neighborhood:
             nc3.markdown(
                 "Melhor score: " + render_opportunity_score_badge(float(row["best_opportunity_score"]))
             )
+
+        # Favorite buttons
+        if "id" in listings_df.columns:
+            repo = ListingRepository(get_db())
+            fav_ids = {r["id"] for r in repo.query_favorites()}
+            st.caption("Favoritar anúncios:")
+            btn_cols = st.columns(min(len(listings_df), 4))
+            for idx, row in enumerate(listings_df.head(12).iter_rows(named=True)):
+                label = (row.get("title") or row.get("url") or row["id"])[:35]
+                icon = "★" if row["id"] in fav_ids else "☆"
+                with btn_cols[idx % 4]:
+                    if st.button(f"{icon} {label}", key=f"fav_{row['id']}", use_container_width=True):
+                        repo.toggle_favorite(row["id"])
+                        st.rerun()
 
         # Opportunity table with score columns
         display_cols = [

@@ -200,7 +200,7 @@ if selected_neighborhood:
 
         # Add favorite boolean column
         subset = subset.with_columns(
-            pl.col("id").map_elements(lambda i: i in fav_ids, return_dtype=pl.Boolean).alias("★")
+            pl.col("id").is_in(fav_ids).alias("★")
         )
 
         # Reorder: star first, then the rest (excluding id)

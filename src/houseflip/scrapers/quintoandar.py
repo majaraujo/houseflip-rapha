@@ -1,152 +1,170 @@
-"""QuintoAndar scraper — parses schema.org JSON-LD listings embedded in SSR HTML."""
+"""QuintoAndar scraper — uses internal JSON search API (POST)."""
 
-import json
 import logging
-import re
+from collections.abc import AsyncGenerator
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 
-from parsel import Selector
-
 from houseflip.models.listing import Listing, ListingSource, ListingType, PropertyType
+from houseflip.models.scrape_config import ScrapeJob
 from houseflip.scrapers.base import BaseScraper, slugify
 
 logger = logging.getLogger(__name__)
 
-BASE_URL = "https://www.quintoandar.com.br"
+API_URL = "https://apigw.prod.quintoandar.com.br/house-listing-search/v2/search/list"
+PAGE_SIZE = 12
 
-_LISTING_TYPE_SLUG = {
-    ListingType.SALE: "comprar",
-    ListingType.RENT: "alugar",
+_BUSINESS_CONTEXT = {
+    ListingType.SALE: "SALE",
+    ListingType.RENT: "RENT",
 }
 
-_PROP_TYPE_PARAM = {
-    PropertyType.APARTMENT: "Apartamento",
-    PropertyType.HOUSE: "Casa",
-    PropertyType.LOT: "Terreno",
-    PropertyType.COMMERCIAL: "Comercial",
+_HOUSE_TYPES = {
+    PropertyType.APARTMENT: "APARTMENT",
+    PropertyType.HOUSE: "HOUSE",
+    PropertyType.LOT: "LOT",
+    PropertyType.COMMERCIAL: "COMMERCIAL",
 }
 
-_SCHEMA_TYPE_TO_PROP = {
-    "Apartment": PropertyType.APARTMENT,
-    "House": PropertyType.HOUSE,
-    "SingleFamilyResidence": PropertyType.HOUSE,
-    "LandmarksOrHistoricalBuildings": PropertyType.COMMERCIAL,
+# Coordinates for major Brazilian cities
+_CITY_COORDS: dict[str, dict] = {
+    "sao-paulo": {
+        "lat": -23.55052, "lng": -46.633309,
+        "viewport": {"north": -23.41968608051386, "south": -23.68122383243045, "east": -46.55194150732421, "west": -46.71467649267577},
+    },
+    "rio-de-janeiro": {
+        "lat": -22.9068, "lng": -43.1729,
+        "viewport": {"north": -22.75, "south": -23.07, "east": -43.09, "west": -43.80},
+    },
+    "belo-horizonte": {
+        "lat": -19.9167, "lng": -43.9345,
+        "viewport": {"north": -19.79, "south": -20.04, "east": -43.86, "west": -44.07},
+    },
+    "curitiba": {
+        "lat": -25.4284, "lng": -49.2733,
+        "viewport": {"north": -25.33, "south": -25.53, "east": -49.19, "west": -49.38},
+    },
+    "porto-alegre": {
+        "lat": -30.0346, "lng": -51.2177,
+        "viewport": {"north": -29.94, "south": -30.22, "east": -51.10, "west": -51.28},
+    },
 }
-
-# Minimum listings to assume there's a next page
-_PAGE_SIZE = 12
+_DEFAULT_COORDS = _CITY_COORDS["sao-paulo"]
 
 
 class QuintoAndarScraper(BaseScraper):
     source = ListingSource.QUINTOANDAR
 
     def _build_url(self, page: int) -> str:
-        listing_slug = _LISTING_TYPE_SLUG[self.job.listing_type]
-        city_slug = slugify(self.job.city)
-        state = self.job.state.lower()
-        prop_slug = _PROP_TYPE_PARAM.get(self.job.property_type, "Apartamento").lower()
-
-        # QuintoAndar uses neighborhood in the path when filtering by bairro:
-        # /comprar/imovel/vila-madalena-sao-paulo-sp-brasil/apartamento
-        # Without neighborhood: /comprar/imovel/sao-paulo-sp-brasil/apartamento
-        if self.job.neighborhood:
-            neigh_slug = slugify(self.job.neighborhood)
-            location = f"{neigh_slug}-{city_slug}-{state}-brasil"
-        else:
-            location = f"{city_slug}-{state}-brasil"
-
-        url = f"{BASE_URL}/{listing_slug}/imovel/{location}/{prop_slug}"
-
-        params = []
-        if page > 1:
-            params.append(f"pagina={page}")
-
-        return f"{url}?{'&'.join(params)}" if params else url
+        # Not used — this scraper overrides scrape() directly
+        return API_URL
 
     def _parse_listings(self, html: str) -> list[Listing]:
-        sel = Selector(text=html)
-        json_ld_blocks = sel.css('script[type="application/ld+json"]::text').getall()
+        # Not used — this scraper overrides scrape() directly
+        return []
 
-        results = []
-        for block in json_ld_blocks:
-            try:
-                data = json.loads(block)
-            except json.JSONDecodeError:
-                continue
+    def _has_next_page(self, html: str, page: int) -> bool:
+        # Not used — this scraper overrides scrape() directly
+        return False
 
-            schema_type = data.get("@type", "")
-            if schema_type not in _SCHEMA_TYPE_TO_PROP:
-                continue
+    def _build_payload(self, offset: int) -> dict:
+        city_slug = slugify(self.job.city)
+        state = self.job.state.lower()
+        coords = _CITY_COORDS.get(city_slug, _DEFAULT_COORDS)
 
-            listing = self._parse_item(data)
-            if listing:
-                results.append(listing)
+        if self.job.neighborhood:
+            neigh_slug = slugify(self.job.neighborhood)
+            slug = f"{neigh_slug}-{city_slug}-{state}-brasil"
+        else:
+            slug = f"{city_slug}-{state}-brasil"
 
-        if not results:
-            logger.warning("QuintoAndar: nenhum anúncio encontrado na página")
+        return {
+            "context": {"mapShowing": False, "listShowing": True, "isSSR": False},
+            "fields": [
+                "id", "coverImage", "rent", "totalCost", "salePrice",
+                "iptuPlusCondominium", "area", "address", "regionName", "city",
+                "type", "forRent", "forSale", "isPrimaryMarket",
+                "bedrooms", "parkingSpaces", "suites", "bathrooms",
+                "neighbourhood", "categories", "isFurnished",
+                "installations", "amenities",
+            ],
+            "filters": {
+                "businessContext": _BUSINESS_CONTEXT[self.job.listing_type],
+                "blocklist": [],
+                "selectedHouses": [],
+                "availability": "ANY",
+                "occupancy": "ANY",
+                "enableFlexibleSearch": True,
+                "categories": [],
+                "partnerIds": [],
+                "houseSpecs": {
+                    "houseTypes": [_HOUSE_TYPES.get(self.job.property_type, "APARTMENT")],
+                    "area": {"range": {}},
+                    "bedrooms": {"range": {}},
+                    "bathrooms": {"range": {}},
+                    "parkingSpace": {"range": {}},
+                    "suites": {"range": {}},
+                    "amenities": [],
+                    "installations": [],
+                },
+                "location": {
+                    "coordinate": {"lat": coords["lat"], "lng": coords["lng"]},
+                    "countryCode": "BR",
+                    "neighborhoods": [],
+                    "viewport": coords["viewport"],
+                },
+                "priceRange": [],
+                "specialConditions": [],
+                "excludedSpecialConditions": [],
+            },
+            "locationDescriptions": [{"description": slug}],
+            "pagination": {"pageSize": PAGE_SIZE, "offset": offset},
+            "slug": slug,
+            "sorting": {"criteria": "RELEVANCE", "order": "DESC"},
+            "topics": [],
+        }
 
-        return results
-
-    def _parse_item(self, data: dict) -> Listing | None:
+    def _parse_item(self, hit: dict) -> Listing | None:
         try:
-            url = data.get("url", "")
-            if not url:
+            # Elasticsearch-style: data lives in _source
+            house = hit.get("_source", hit)
+
+            external_id = str(house.get("id", hit.get("_id", "")))
+            if not external_id:
                 return None
 
-            # external_id from URL: /imovel/895287325/comprar/...
-            id_match = re.search(r"/imovel/(\d+)/", url)
-            if not id_match:
-                return None
-            external_id = id_match.group(1)
+            url = f"https://www.quintoandar.com.br/imovel/{external_id}"
 
-            # Price from potentialAction
-            action = data.get("potentialAction", {})
-            price_raw = action.get("price", 0)
+            is_sale = house.get("forSale", False)
+            listing_type = ListingType.SALE if is_sale else ListingType.RENT
+
+            price_raw = house.get("salePrice") if is_sale else house.get("rent")
             try:
                 price = Decimal(str(price_raw))
-            except InvalidOperation:
+            except (InvalidOperation, TypeError):
                 return None
             if price <= 0:
                 return None
 
-            # Area
-            area_raw = data.get("floorSize")
-            area = None
-            if area_raw is not None:
-                try:
-                    area = Decimal(str(area_raw))
-                except InvalidOperation:
-                    pass
-
-            # Rooms
-            bedrooms = data.get("numberOfBedrooms") or data.get("numberOfRooms")
-            bathrooms = data.get("numberOfFullBathrooms") or data.get("numberOfBathroomsTotal")
+            area_raw = house.get("area")
             try:
-                bedrooms = int(bedrooms) if bedrooms is not None else None
-                bathrooms = int(bathrooms) if bathrooms is not None else None
-            except (ValueError, TypeError):
-                bedrooms = None
-                bathrooms = None
+                area = Decimal(str(area_raw)) if area_raw else None
+            except (InvalidOperation, TypeError):
+                area = None
 
-            # Address — "Rua X, Bairro, Cidade" or "Bairro, Cidade"
-            address_raw = data.get("address", "")
-            neighborhood, city, street = self._parse_address(address_raw)
+            bedrooms = house.get("bedrooms")
+            bathrooms = house.get("bathrooms")
+            parking = house.get("parkingSpaces")
 
-            # Property type from @type
-            schema_type = data.get("@type", "")
-            prop_type = _SCHEMA_TYPE_TO_PROP.get(schema_type, self.job.property_type)
+            neighborhood = house.get("neighbourhood") or house.get("regionName") or ""
+            city = house.get("city") or self.job.city
+            address = house.get("address") or ""
 
-            # Listing type from URL path or action type
-            action_type = action.get("@type", "")
-            if "Rent" in action_type or "/alugar/" in url:
-                listing_type = ListingType.RENT
+            house_type = house.get("type", "").upper()
+            if "CASA" in house_type or house_type == "HOUSE":
+                prop_type = PropertyType.HOUSE
             else:
-                listing_type = ListingType.SALE
-
-            # Image
-            image = data.get("image", "")
-            images = [image] if image else []
+                prop_type = self.job.property_type
 
             return Listing(
                 external_id=external_id,
@@ -156,35 +174,61 @@ class QuintoAndarScraper(BaseScraper):
                 property_type=prop_type,
                 city=city,
                 neighborhood=neighborhood,
-                street=street or None,
+                street=address or None,
                 price_brl=price,
                 area_m2=area,
-                bedrooms=bedrooms,
-                bathrooms=bathrooms,
-                parking_spots=None,
-                title=data.get("name"),
-                description=data.get("description"),
-                images=images,
+                bedrooms=int(bedrooms) if bedrooms is not None else None,
+                bathrooms=int(bathrooms) if bathrooms is not None else None,
+                parking_spots=int(parking) if parking is not None else None,
                 scraped_at=datetime.now(timezone.utc),
             )
         except Exception:
             logger.exception("QuintoAndar: erro ao parsear item")
             return None
 
-    def _parse_address(self, address: str) -> tuple[str, str, str | None]:
-        """Parse 'Rua X, Bairro, Cidade' → (neighborhood, city, street)."""
-        parts = [p.strip() for p in address.split(",")]
-        if len(parts) >= 3:
-            return parts[-2], parts[-1], ", ".join(parts[:-2])
-        if len(parts) == 2:
-            return parts[0], parts[1], None
-        return address, self.job.city, None
+    async def scrape(self) -> AsyncGenerator[list[Listing], None]:
+        """Override base scrape() to use the JSON API with offset pagination."""
+        seen_ids: set[str] = set()
 
-    def _has_next_page(self, html: str, page: int) -> bool:
-        sel = Selector(text=html)
-        json_ld_blocks = sel.css('script[type="application/ld+json"]::text').getall()
-        count = sum(
-            1 for block in json_ld_blocks
-            if '"@type"' in block and any(t in block for t in _SCHEMA_TYPE_TO_PROP)
-        )
-        return count >= _PAGE_SIZE
+        for page in range(self.job.max_pages):
+            offset = page * PAGE_SIZE
+            payload = self._build_payload(offset)
+
+            try:
+                response = await self.client.post(
+                    API_URL,
+                    json=payload,
+                    headers={"Content-Type": "application/json", "Accept": "application/json"},
+                )
+                response.raise_for_status()
+                data = response.json()
+            except Exception:
+                logger.exception("QuintoAndar: erro na requisição API (offset=%d)", offset)
+                break
+
+            raw_hits = data.get("hits", {})
+            if isinstance(raw_hits, dict):
+                houses = raw_hits.get("hits", [])
+            elif isinstance(raw_hits, list):
+                houses = raw_hits
+            else:
+                houses = []
+            if not houses:
+                logger.debug("QuintoAndar: sem resultados no offset %d", offset)
+                break
+
+            new_listings = []
+            for house in houses:
+                listing = self._parse_item(house)
+                if listing and listing.external_id not in seen_ids:
+                    seen_ids.add(listing.external_id)
+                    new_listings.append(listing)
+
+            if not new_listings:
+                break
+
+            yield new_listings
+
+            # Stop if returned fewer items than page size (last page)
+            if len(houses) < PAGE_SIZE:
+                break

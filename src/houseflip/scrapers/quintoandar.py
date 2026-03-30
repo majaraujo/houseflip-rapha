@@ -2,9 +2,7 @@
 
 import asyncio
 import logging
-import os
 import random
-import urllib.parse
 from collections.abc import AsyncGenerator
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
@@ -199,20 +197,11 @@ class QuintoAndarScraper(BaseScraper):
             payload = self._build_payload(offset)
 
             try:
-                scraperapi_key = os.getenv("SCRAPERAPI_KEY")
-                if scraperapi_key:
-                    proxy_url = f"http://api.scraperapi.com/?api_key={scraperapi_key}&url={urllib.parse.quote_plus(API_URL)}"
-                    response = await self.client.post(
-                        proxy_url,
-                        json=payload,
-                        headers={"Content-Type": "application/json", "Accept": "application/json"},
-                    )
-                else:
-                    response = await self.client.post(
-                        API_URL,
-                        json=payload,
-                        headers={"Content-Type": "application/json", "Accept": "application/json"},
-                    )
+                response = await self.client.post(
+                    API_URL,
+                    json=payload,
+                    headers={"Content-Type": "application/json", "Accept": "application/json"},
+                )
                 response.raise_for_status()
                 data = response.json()
             except Exception:

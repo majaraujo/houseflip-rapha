@@ -3,6 +3,7 @@
 import json
 import logging
 import re
+import urllib.parse
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 
@@ -43,9 +44,13 @@ class OlxScraper(BaseScraper):
         region = f"{city_slug}-e-regiao"
         path = f"/imoveis/{prop_slug}/{listing_type}/estado-{state}/{region}"
 
+        params: dict[str, str] = {}
         if page > 1:
-            return f"{BASE_URL}{path}?o={page}"
-        return f"{BASE_URL}{path}"
+            params["o"] = str(page)
+        if self.job.neighborhood:
+            params["q"] = self.job.neighborhood
+
+        return f"{BASE_URL}{path}?{urllib.parse.urlencode(params)}" if params else f"{BASE_URL}{path}"
 
     def _parse_listings(self, html: str) -> list[Listing]:
         sel = Selector(text=html)

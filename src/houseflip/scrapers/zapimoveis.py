@@ -2,6 +2,7 @@
 
 import logging
 import re
+import urllib.parse
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 
@@ -41,10 +42,15 @@ class ZapImoveisScraper(BaseScraper):
         prop_slug = _PROP_TYPE_SLUG.get(self.job.property_type, "apartamentos")
 
         path = f"/{listing_type}/{prop_slug}/{state}+{city_slug}/"
-        url = f"{BASE_URL}{path}?pagina={page}"
+        params: dict[str, str] = {"pagina": str(page)}
+
         if self.job.neighborhood:
-            url += f"&bairros={slugify(self.job.neighborhood)}"
-        return url
+            # ZapImóveis filters by neighborhood via the `onde` query parameter
+            # which accepts a human-readable location string
+            onde = f"{self.job.neighborhood}, {self.job.city}"
+            params["onde"] = onde
+
+        return f"{BASE_URL}{path}?{urllib.parse.urlencode(params)}"
 
     def _parse_listings(self, html: str) -> list[Listing]:
         sel = Selector(text=html)

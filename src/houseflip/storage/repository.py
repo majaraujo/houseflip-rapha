@@ -113,6 +113,26 @@ class ListingRepository:
         )
         return len(rows)
 
+    def get_existing_ids(
+        self,
+        source: str,
+        listing_type: str,
+        property_type: str,
+        city: str,
+    ) -> set[str]:
+        """Return all external_ids already stored for the given source/type/city combination."""
+        rows = self._db.execute(
+            """
+            SELECT external_id FROM listings
+             WHERE source = ?
+               AND listing_type = ?
+               AND property_type = ?
+               AND lower(city) = lower(?)
+            """,
+            [source, listing_type, property_type, city],
+        ).fetchall()
+        return {r[0] for r in rows}
+
     def query_listings(
         self,
         city: str | None = None,

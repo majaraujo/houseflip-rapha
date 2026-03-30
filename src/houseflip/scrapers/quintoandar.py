@@ -191,6 +191,7 @@ class QuintoAndarScraper(BaseScraper):
     async def scrape(self) -> AsyncGenerator[list[Listing], None]:
         """Override base scrape() to use the JSON API with offset pagination."""
         seen_ids: set[str] = set()
+        known_ids: frozenset[str] = self.job.known_ids
 
         for page in range(self.job.max_pages):
             offset = page * PAGE_SIZE
@@ -198,7 +199,6 @@ class QuintoAndarScraper(BaseScraper):
 
             try:
                 scraperapi_key = os.getenv("SCRAPERAPI_KEY")
-                logger.warning("QuintoAndar: usando scraperapi=%s", bool(scraperapi_key))
                 if scraperapi_key:
                     proxy_url = f"http://api.scraperapi.com/?api_key={scraperapi_key}&url={urllib.parse.quote_plus(API_URL)}"
                     response = await self.client.post(
@@ -214,36 +214,46 @@ class QuintoAndarScraper(BaseScraper):
                     )
                 response.raise_for_status()
                 data = response.json()
-                logger.warning("QuintoAndar: status=%d keys=%s", response.status_code, list(data.keys()))
             except Exception:
                 logger.exception("QuintoAndar: erro na requisição API (offset=%d)", offset)
                 break
 
             raw_hits = data.get("hits", {})
-            logger.warning("QuintoAndar: raw_hits type=%s", type(raw_hits).__name__)
             if isinstance(raw_hits, dict):
                 houses = raw_hits.get("hits", [])
             elif isinstance(raw_hits, list):
                 houses = raw_hits
             else:
                 houses = []
-            logger.warning("QuintoAndar: houses count=%d", len(houses))
+
             if not houses:
-                logger.warning("QuintoAndar: sem resultados no offset %d — raw=%s", offset, str(data)[:300])
+                logger.info("QuintoAndar: sem resultados no offset %d", offset)
                 break
 
-            new_listings = []
+            # Parse all items, deduplicating within this session
+            session_new: list[Listing] = []
             for house in houses:
                 listing = self._parse_item(house)
-                if listing and listing.external_id not in seen_ids:
-                    seen_ids.add(listing.external_id)
-                    new_listings.append(listing)
+                if listing is None or listing.external_id in seen_ids:
+                    continue
+                seen_ids.add(listing.external_id)
+                session_new.append(listing)
 
-            if not new_listings:
+            if not session_new:
+                # Every item on this page was already seen this session → we looped, stop
                 break
 
-            yield new_listings
+            # Filter out listings already in the database — yield only truly new ones
+            new_listings = [l for l in session_new if l.external_id not in known_ids]
 
-            # Stop if returned fewer items than page size (last page)
+            if new_listings:
+                logger.info("QuintoAndar: página %d → %d novos, %d já existentes ignorados",
+                            page + 1, len(new_listings), len(session_new) - len(new_listings))
+                yield new_listings
+            else:
+                logger.info("QuintoAndar: página %d → todos os %d anúncios já existem no banco, continuando...",
+                            page + 1, len(session_new))
+
+            # Stop if the API returned fewer items than the page size (last page)
             if len(houses) < PAGE_SIZE:
                 break

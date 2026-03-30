@@ -18,3 +18,5 @@ class ScrapeJob(BaseModel):
     property_type: PropertyType = PropertyType.APARTMENT
     max_pages: int = Field(default=5, ge=1, le=50)
     request_delay_seconds: float = Field(default_factory=_default_request_delay, ge=0.5, le=10.0)
+    # IDs already in the database — scraper will skip these and keep paginating
+    known_ids: frozenset[str] = Field(default_factory=frozenset)

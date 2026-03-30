@@ -68,8 +68,6 @@ class QuintoAndarScraper(BaseScraper):
         sel = Selector(text=html)
         json_ld_blocks = sel.css('script[type="application/ld+json"]::text').getall()
 
-        neigh_filter = slugify(self.job.neighborhood) if self.job.neighborhood else None
-
         results = []
         for block in json_ld_blocks:
             try:
@@ -83,8 +81,6 @@ class QuintoAndarScraper(BaseScraper):
 
             listing = self._parse_item(data)
             if listing:
-                if neigh_filter and neigh_filter not in slugify(listing.neighborhood):
-                    continue
                 results.append(listing)
 
         if not results:

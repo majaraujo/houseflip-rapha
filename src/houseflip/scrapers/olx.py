@@ -71,14 +71,10 @@ class OlxScraper(BaseScraper):
             logger.warning("OLX: estrutura inesperada no __NEXT_DATA__")
             return []
 
-        neigh_filter = slugify(self.job.neighborhood) if self.job.neighborhood else None
-
         results = []
         for ad in ads:
             listing = self._parse_item(ad)
             if listing:
-                if neigh_filter and slugify(listing.neighborhood) != neigh_filter:
-                    continue
                 results.append(listing)
         return results
 

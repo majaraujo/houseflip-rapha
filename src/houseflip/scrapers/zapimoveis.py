@@ -59,14 +59,10 @@ class ZapImoveisScraper(BaseScraper):
             logger.warning("ZapImóveis: nenhum anúncio encontrado na página")
             return []
 
-        neigh_filter = slugify(self.job.neighborhood) if self.job.neighborhood else None
-
         results = []
         for item in items:
             listing = self._parse_item(item)
             if listing:
-                if neigh_filter and neigh_filter not in slugify(listing.neighborhood):
-                    continue
                 results.append(listing)
         return results
 

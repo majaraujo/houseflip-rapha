@@ -49,13 +49,10 @@ class ChavesNaMaoScraper(BaseScraper):
             logger.warning("Chaves na Mão: nenhum card encontrado")
             return []
 
-        neigh_filter = slugify(self.job.neighborhood) if self.job.neighborhood else None
         results = []
         for card in cards:
             listing = self._parse_card(card)
             if listing:
-                if neigh_filter and slugify(listing.neighborhood) != neigh_filter:
-                    continue
                 results.append(listing)
         return results
 

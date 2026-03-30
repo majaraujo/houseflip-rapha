@@ -1,7 +1,9 @@
 """QuintoAndar scraper — uses internal JSON search API (POST)."""
 
+import asyncio
 import logging
 import os
+import random
 import urllib.parse
 from collections.abc import AsyncGenerator
 from datetime import datetime, timezone
@@ -243,3 +245,6 @@ class QuintoAndarScraper(BaseScraper):
 
             if len(houses) < PAGE_SIZE:
                 break
+
+            # Delay entre páginas para evitar rate limiting
+            await asyncio.sleep(self.job.request_delay_seconds + random.uniform(-0.3, 0.5))

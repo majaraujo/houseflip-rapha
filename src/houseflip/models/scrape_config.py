@@ -16,5 +16,5 @@ class ScrapeJob(BaseModel):
     neighborhood: str | None = None
     listing_type: ListingType = ListingType.SALE
     property_type: PropertyType = PropertyType.APARTMENT
-    max_pages: int = Field(default=5, ge=1, le=50)
+    max_pages: int = Field(default=5, ge=1, le=500)
     request_delay_seconds: float = Field(default_factory=_default_request_delay, ge=0.5, le=10.0)

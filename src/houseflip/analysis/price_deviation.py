@@ -64,14 +64,29 @@ class PriceDeviationService:
             params if params else None,
         )
         rows = result.fetchall()
-        cols = ["id", "external_id", "source", "url", "listing_type", "property_type",
-                "city", "neighborhood", "price_brl", "area_m2", "price_per_m2",
-                "bedrooms", "bathrooms", "parking_spots", "title"]
+
+        schema = {
+            "id": pl.Utf8,
+            "external_id": pl.Utf8,
+            "source": pl.Utf8,
+            "url": pl.Utf8,
+            "listing_type": pl.Utf8,
+            "property_type": pl.Utf8,
+            "city": pl.Utf8,
+            "neighborhood": pl.Utf8,
+            "price_brl": pl.Float64,
+            "area_m2": pl.Float64,
+            "price_per_m2": pl.Float64,
+            "bedrooms": pl.Int64,
+            "bathrooms": pl.Int64,
+            "parking_spots": pl.Int64,
+            "title": pl.Utf8,
+        }
 
         if not rows:
-            return pl.DataFrame(schema={c: pl.Utf8 for c in cols})
+            return pl.DataFrame(schema=schema)
 
-        return pl.DataFrame(rows, schema=cols, orient="row")
+        return pl.DataFrame(rows, schema=schema, orient="row")
 
     def compute_opportunities(
         self,

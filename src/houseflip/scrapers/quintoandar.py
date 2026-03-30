@@ -198,6 +198,7 @@ class QuintoAndarScraper(BaseScraper):
 
             try:
                 scraperapi_key = os.getenv("SCRAPERAPI_KEY")
+                logger.warning("QuintoAndar: usando scraperapi=%s", bool(scraperapi_key))
                 if scraperapi_key:
                     proxy_url = f"http://api.scraperapi.com/?api_key={scraperapi_key}&url={urllib.parse.quote_plus(API_URL)}"
                     response = await self.client.post(
@@ -213,19 +214,22 @@ class QuintoAndarScraper(BaseScraper):
                     )
                 response.raise_for_status()
                 data = response.json()
+                logger.warning("QuintoAndar: status=%d keys=%s", response.status_code, list(data.keys()))
             except Exception:
                 logger.exception("QuintoAndar: erro na requisição API (offset=%d)", offset)
                 break
 
             raw_hits = data.get("hits", {})
+            logger.warning("QuintoAndar: raw_hits type=%s", type(raw_hits).__name__)
             if isinstance(raw_hits, dict):
                 houses = raw_hits.get("hits", [])
             elif isinstance(raw_hits, list):
                 houses = raw_hits
             else:
                 houses = []
+            logger.warning("QuintoAndar: houses count=%d", len(houses))
             if not houses:
-                logger.debug("QuintoAndar: sem resultados no offset %d", offset)
+                logger.warning("QuintoAndar: sem resultados no offset %d — raw=%s", offset, str(data)[:300])
                 break
 
             new_listings = []

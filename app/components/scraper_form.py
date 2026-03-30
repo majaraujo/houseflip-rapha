@@ -44,14 +44,18 @@ def render_scraper_form() -> ScrapeJob | None:
             st.error("Informe a cidade.")
             return None
 
-        return ScrapeJob(
-            source=ListingSource(SOURCE_OPTIONS[source_label]),
-            city=city.strip(),
-            state=state.strip().lower() or "sp",
-            neighborhood=neighborhood.strip() or None,
-            listing_type=ListingType(LISTING_TYPE_OPTIONS[listing_type_label]),
-            property_type=PropertyType(PROPERTY_TYPE_OPTIONS[property_type_label]),
-            max_pages=max_pages,
-        )
+        try:
+            return ScrapeJob(
+                source=ListingSource(SOURCE_OPTIONS[source_label]),
+                city=city.strip(),
+                state=state.strip().lower() or "sp",
+                neighborhood=neighborhood.strip() or None,
+                listing_type=ListingType(LISTING_TYPE_OPTIONS[listing_type_label]),
+                property_type=PropertyType(PROPERTY_TYPE_OPTIONS[property_type_label]),
+                max_pages=max_pages,
+            )
+        except Exception as exc:
+            st.error(f"Erro ao criar job de scraping: {exc}")
+            return None
 
     return None

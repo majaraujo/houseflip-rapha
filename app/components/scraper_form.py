@@ -33,10 +33,9 @@ def render_scraper_form() -> ScrapeJob | None:
             )
             is_chavesnamao = source_label == "Chaves na Mão"
             if is_chavesnamao:
-                st.caption("Máximo de páginas: **1** (limitação da fonte)")
                 max_pages = 1
             else:
-                max_pages = st.slider("Máximo de páginas", min_value=1, max_value=1000, value=50)
+                max_pages = 1000
 
         submitted = st.form_submit_button("Iniciar Scraping", type="primary", use_container_width=True)
 

@@ -45,16 +45,24 @@ class QuintoAndarScraper(BaseScraper):
         listing_slug = _LISTING_TYPE_SLUG[self.job.listing_type]
         city_slug = slugify(self.job.city)
         state = self.job.state.lower()
-        prop_param = _PROP_TYPE_PARAM.get(self.job.property_type, "Apartamento")
+        prop_slug = _PROP_TYPE_PARAM.get(self.job.property_type, "Apartamento").lower()
 
-        location = f"{city_slug}-{state}-brasil"
-        url = f"{BASE_URL}/{listing_slug}/imovel/{location}/"
+        # QuintoAndar uses neighborhood in the path when filtering by bairro:
+        # /comprar/imovel/vila-madalena-sao-paulo-sp-brasil/apartamento
+        # Without neighborhood: /comprar/imovel/sao-paulo-sp-brasil/apartamento
+        if self.job.neighborhood:
+            neigh_slug = slugify(self.job.neighborhood)
+            location = f"{neigh_slug}-{city_slug}-{state}-brasil"
+        else:
+            location = f"{city_slug}-{state}-brasil"
 
-        params = [f"tipoImovel={prop_param}"]
+        url = f"{BASE_URL}/{listing_slug}/imovel/{location}/{prop_slug}"
+
+        params = []
         if page > 1:
             params.append(f"pagina={page}")
 
-        return f"{url}?{'&'.join(params)}"
+        return f"{url}?{'&'.join(params)}" if params else url
 
     def _parse_listings(self, html: str) -> list[Listing]:
         sel = Selector(text=html)

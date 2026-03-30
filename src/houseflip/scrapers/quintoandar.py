@@ -221,6 +221,23 @@ class QuintoAndarScraper(BaseScraper):
             else:
                 prop_type = self.job.property_type
 
+            # Build a descriptive title from available fields
+            type_label = "Casa" if prop_type == PropertyType.HOUSE else "Apartamento"
+            action = "para alugar" if listing_type == ListingType.RENT else "para comprar"
+            parts = [f"{type_label} {action}"]
+            if area:
+                parts.append(f"com {int(area)} m²")
+            if bedrooms:
+                parts.append(f"{bedrooms} quarto{'s' if bedrooms > 1 else ''}")
+            if bathrooms:
+                parts.append(f"{bathrooms} banheiro{'s' if bathrooms > 1 else ''}")
+            if parking:
+                parts.append(f"{parking} vaga{'s' if parking > 1 else ''}")
+            location_parts = [p for p in [address, neighborhood, city] if p]
+            title = ", ".join(parts)
+            if location_parts:
+                title += " em " + ", ".join(location_parts)
+
             return Listing(
                 external_id=external_id,
                 source=ListingSource.QUINTOANDAR,
@@ -235,6 +252,7 @@ class QuintoAndarScraper(BaseScraper):
                 bedrooms=int(bedrooms) if bedrooms is not None else None,
                 bathrooms=int(bathrooms) if bathrooms is not None else None,
                 parking_spots=int(parking) if parking is not None else None,
+                title=title,
                 scraped_at=datetime.now(timezone.utc),
             )
         except Exception:

@@ -53,12 +53,7 @@ class ScrapeService:
         )
 
         # Pre-load IDs already in the DB so the scraper can skip them and keep paginating
-        existing_ids = self._repo.get_existing_ids(
-            source=job.source,
-            listing_type=job.listing_type,
-            property_type=job.property_type,
-            city=job.city,
-        )
+        existing_ids = self._repo.get_existing_ids(source=job.source, city=job.city)
         if existing_ids:
             job = job.model_copy(update={"known_ids": frozenset(existing_ids)})
 

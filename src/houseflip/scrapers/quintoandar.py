@@ -14,7 +14,7 @@ from houseflip.scrapers.base import BaseScraper, slugify
 logger = logging.getLogger(__name__)
 
 API_URL = "https://apigw.prod.quintoandar.com.br/house-listing-search/v2/search/list"
-PAGE_SIZE = 12
+PAGE_SIZE = 20
 
 _BUSINESS_CONTEXT = {
     ListingType.SALE: "SALE",
@@ -28,7 +28,7 @@ _HOUSE_TYPES = {
     PropertyType.COMMERCIAL: "COMMERCIAL",
 }
 
-# Coordinates for major Brazilian cities
+# City-level bounding boxes
 _CITY_COORDS: dict[str, dict] = {
     "sao-paulo": {
         "lat": -23.55052, "lng": -46.633309,
@@ -53,6 +53,50 @@ _CITY_COORDS: dict[str, dict] = {
 }
 _DEFAULT_COORDS = _CITY_COORDS["sao-paulo"]
 
+# Neighbourhood-level bounding boxes for São Paulo (tighter viewport = fewer irrelevant results)
+_NEIGHBORHOOD_COORDS: dict[str, dict] = {
+    "moema": {
+        "lat": -23.602021, "lng": -46.672103,
+        "viewport": {"north": -23.56, "south": -23.65, "east": -46.63, "west": -46.70},
+    },
+    "pinheiros": {
+        "lat": -23.5643, "lng": -46.6836,
+        "viewport": {"north": -23.54, "south": -23.59, "east": -46.66, "west": -46.71},
+    },
+    "vila-mariana": {
+        "lat": -23.5874, "lng": -46.6353,
+        "viewport": {"north": -23.57, "south": -23.61, "east": -46.61, "west": -46.66},
+    },
+    "itaim-bibi": {
+        "lat": -23.5850, "lng": -46.6769,
+        "viewport": {"north": -23.56, "south": -23.61, "east": -46.65, "west": -46.71},
+    },
+    "brooklin": {
+        "lat": -23.6199, "lng": -46.6960,
+        "viewport": {"north": -23.60, "south": -23.64, "east": -46.67, "west": -46.72},
+    },
+    "perdizes": {
+        "lat": -23.5367, "lng": -46.6642,
+        "viewport": {"north": -23.52, "south": -23.56, "east": -46.64, "west": -46.69},
+    },
+    "jardins": {
+        "lat": -23.5658, "lng": -46.6566,
+        "viewport": {"north": -23.55, "south": -23.58, "east": -46.64, "west": -46.68},
+    },
+    "campo-belo": {
+        "lat": -23.6218, "lng": -46.6643,
+        "viewport": {"north": -23.60, "south": -23.64, "east": -46.64, "west": -46.69},
+    },
+    "santo-andre": {
+        "lat": -23.6639, "lng": -46.5338,
+        "viewport": {"north": -23.64, "south": -23.69, "east": -46.51, "west": -46.56},
+    },
+    "vila-olimpia": {
+        "lat": -23.5960, "lng": -46.6853,
+        "viewport": {"north": -23.58, "south": -23.61, "east": -46.67, "west": -46.70},
+    },
+}
+
 
 class QuintoAndarScraper(BaseScraper):
     source = ListingSource.QUINTOANDAR
@@ -69,10 +113,19 @@ class QuintoAndarScraper(BaseScraper):
         # Not used — this scraper overrides scrape() directly
         return False
 
+    def _get_coords(self) -> dict:
+        """Return the tightest available viewport: neighbourhood > city > default."""
+        if self.job.neighborhood:
+            neigh_slug = slugify(self.job.neighborhood)
+            if neigh_slug in _NEIGHBORHOOD_COORDS:
+                return _NEIGHBORHOOD_COORDS[neigh_slug]
+        city_slug = slugify(self.job.city)
+        return _CITY_COORDS.get(city_slug, _DEFAULT_COORDS)
+
     def _build_payload(self, offset: int) -> dict:
         city_slug = slugify(self.job.city)
         state = self.job.state.lower()
-        coords = _CITY_COORDS.get(city_slug, _DEFAULT_COORDS)
+        coords = self._get_coords()
 
         if self.job.neighborhood:
             neigh_slug = slugify(self.job.neighborhood)
@@ -88,7 +141,7 @@ class QuintoAndarScraper(BaseScraper):
                 "type", "forRent", "forSale", "isPrimaryMarket",
                 "bedrooms", "parkingSpaces", "suites", "bathrooms",
                 "neighbourhood", "categories", "isFurnished",
-                "installations", "amenities",
+                "installations", "amenities", "location",
             ],
             "filters": {
                 "businessContext": _BUSINESS_CONTEXT[self.job.listing_type],
@@ -191,6 +244,10 @@ class QuintoAndarScraper(BaseScraper):
     async def scrape(self) -> AsyncGenerator[list[Listing], None]:
         """Override base scrape() to use the JSON API with offset pagination."""
         seen_ids: set[str] = set()
+        total_available: int | None = None
+
+        # Neighbourhood slug for post-filtering (API filters by viewport, not by name)
+        neigh_slug = slugify(self.job.neighborhood) if self.job.neighborhood else None
 
         for page in range(self.job.max_pages):
             offset = page * PAGE_SIZE
@@ -200,7 +257,11 @@ class QuintoAndarScraper(BaseScraper):
                 response = await self.client.post(
                     API_URL,
                     json=payload,
-                    headers={"Content-Type": "application/json", "Accept": "application/json"},
+                    headers={
+                        "Content-Type": "application/json",
+                        "Accept": "application/json",
+                        "Referer": "https://www.quintoandar.com.br/",
+                    },
                 )
                 response.raise_for_status()
                 data = response.json()
@@ -210,6 +271,12 @@ class QuintoAndarScraper(BaseScraper):
 
             raw_hits = data.get("hits", {})
             if isinstance(raw_hits, dict):
+                # Capture total count on first page
+                if total_available is None:
+                    total_info = raw_hits.get("total", {})
+                    if isinstance(total_info, dict):
+                        total_available = total_info.get("value")
+                        logger.info("QuintoAndar: total disponível na API = %d", total_available or 0)
                 houses = raw_hits.get("hits", [])
             elif isinstance(raw_hits, list):
                 houses = raw_hits
@@ -223,14 +290,25 @@ class QuintoAndarScraper(BaseScraper):
             new_listings = []
             for house in houses:
                 listing = self._parse_item(house)
-                if listing and listing.external_id not in seen_ids:
-                    seen_ids.add(listing.external_id)
-                    new_listings.append(listing)
+                if listing is None or listing.external_id in seen_ids:
+                    continue
+                # Post-filter by neighbourhood: the API uses viewport (bounding box),
+                # so results may include nearby neighbourhoods — keep only the target.
+                if neigh_slug and listing.neighborhood:
+                    if slugify(listing.neighborhood) != neigh_slug:
+                        continue
+                seen_ids.add(listing.external_id)
+                new_listings.append(listing)
 
             if not new_listings:
                 break
 
             yield new_listings
+
+            # Stop when we've collected everything the API has
+            if total_available and len(seen_ids) >= total_available:
+                logger.info("QuintoAndar: todos os %d anúncios coletados", total_available)
+                break
 
             if len(houses) < PAGE_SIZE:
                 break

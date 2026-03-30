@@ -191,7 +191,6 @@ class QuintoAndarScraper(BaseScraper):
     async def scrape(self) -> AsyncGenerator[list[Listing], None]:
         """Override base scrape() to use the JSON API with offset pagination."""
         seen_ids: set[str] = set()
-        known_ids: frozenset[str] = self.job.known_ids
 
         for page in range(self.job.max_pages):
             offset = page * PAGE_SIZE
@@ -230,30 +229,17 @@ class QuintoAndarScraper(BaseScraper):
                 logger.info("QuintoAndar: sem resultados no offset %d", offset)
                 break
 
-            # Parse all items, deduplicating within this session
-            session_new: list[Listing] = []
+            new_listings = []
             for house in houses:
                 listing = self._parse_item(house)
-                if listing is None or listing.external_id in seen_ids:
-                    continue
-                seen_ids.add(listing.external_id)
-                session_new.append(listing)
+                if listing and listing.external_id not in seen_ids:
+                    seen_ids.add(listing.external_id)
+                    new_listings.append(listing)
 
-            if not session_new:
-                # Every item on this page was already seen this session → we looped, stop
+            if not new_listings:
                 break
 
-            # Filter out listings already in the database — yield only truly new ones
-            new_listings = [l for l in session_new if l.external_id not in known_ids]
+            yield new_listings
 
-            if new_listings:
-                logger.info("QuintoAndar: página %d → %d novos, %d já existentes ignorados",
-                            page + 1, len(new_listings), len(session_new) - len(new_listings))
-                yield new_listings
-            else:
-                logger.info("QuintoAndar: página %d → todos os %d anúncios já existem no banco, continuando...",
-                            page + 1, len(session_new))
-
-            # Stop if the API returned fewer items than the page size (last page)
             if len(houses) < PAGE_SIZE:
                 break

@@ -52,10 +52,9 @@ class ScrapeService:
             property_type=job.property_type,
         )
 
-        # Pre-load IDs already in the DB so the scraper can skip them and keep paginating
+        # IDs já no banco para esta fonte+cidade — evita reinserir anúncios já coletados
         existing_ids = self._repo.get_existing_ids(source=job.source, city=job.city)
-        if existing_ids:
-            job = job.model_copy(update={"known_ids": frozenset(existing_ids)})
+        logger.warning("ScrapeService: %d IDs existentes para source=%s city=%s", len(existing_ids), job.source, job.city)
 
         total_found = 0
         all_listings: list[Listing] = []
@@ -94,15 +93,18 @@ class ScrapeService:
             return
 
         for page_num, batch in pages:
-            if batch:
-                self._repo.upsert_listings(batch, run_id, city_override=job.city)
-                all_listings.extend(batch)
-                total_found += len(batch)
+            # Filtra anúncios já existentes no banco antes de salvar/exibir
+            new_batch = [l for l in batch if l.external_id not in existing_ids]
+            logger.warning("ScrapeService: página %d → %d do scraper, %d novos", page_num, len(batch), len(new_batch))
+            if new_batch:
+                self._repo.upsert_listings(new_batch, run_id, city_override=job.city)
+                all_listings.extend(new_batch)
+                total_found += len(new_batch)
             yield {
                 "page": page_num,
-                "found": len(batch),
+                "found": len(new_batch),
                 "total": total_found,
-                "listings": [l.model_dump() for l in batch],
+                "listings": [l.model_dump() for l in new_batch],
                 "error": None,
             }
 
